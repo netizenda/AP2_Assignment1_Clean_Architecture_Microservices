@@ -1,7 +1,7 @@
 # AP2 Assignment 1 – Clean Architecture based Microservices (Order & Payment)
 
 **Student:** Taubakabyl Nurlybek  
-**Group:** [Write your group here]  
+**Group:** SE-2419 
 **Date:** April 01, 2026
 
 ## Project Overview
