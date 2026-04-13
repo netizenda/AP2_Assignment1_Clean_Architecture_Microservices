@@ -3,7 +3,9 @@ package main
 import (
 	"database/sql"
 	"log"
+	"net"
 	"os"
+
 	"payment-service/internal/app"
 
 	_ "github.com/lib/pq"
@@ -11,18 +13,25 @@ import (
 
 func main() {
 	dbURL := getEnv("DATABASE_URL", "postgres://postgres:12345@localhost:5432/paymentdb?sslmode=disable")
+	grpcAddr := getEnv("GRPC_ADDR", ":50051")
+
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer db.Close()
 
-	server := app.NewApp(db)
-	port := getEnv("PORT", "8081")
+	grpcServer := app.NewGRPCServer(db)
 
-	log.Printf("🚀 Payment Service started on :%s", port)
-	if err := server.Run(":" + port); err != nil {
-		log.Fatal(err)
+	lis, err := net.Listen("tcp", grpcAddr)
+	if err != nil {
+		log.Fatalf("failed to listen: %v", err)
+	}
+
+	log.Printf("Payment gRPC Server started on %s", grpcAddr)
+
+	if err := grpcServer.Serve(lis); err != nil {
+		log.Fatalf("failed to serve: %v", err)
 	}
 }
 

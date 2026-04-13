@@ -1,79 +1,91 @@
-# AP2 Assignment 1 – Clean Architecture based Microservices (Order & Payment)
+# AP2 Assignment 2: Clean Architecture Microservices with gRPC
 
-**Student:** Taubakabyl Nurlybek  
-**Group:** SE-2419   
-**Date:** April 01, 2026
+## Project Description
 
-## Project Overview
+This project demonstrates **Clean Architecture** in a microservices environment using **Go**, **Gin** (REST) and **gRPC** (internal communication). It follows the **Contract-First** approach with separate repositories for `.proto` definitions and generated code.
 
-This project implements a two-service platform (Order Service + Payment Service) following **Clean Architecture** principles and microservices best practices. Communication is done strictly via REST using Gin framework.
+- **Order Service** — REST API + gRPC streaming server
+- **Payment Service** — gRPC server
+- Separate PostgreSQL databases
+- Full business logic in Use Cases layer
 
 ## Architecture
 
-Each service is built according to **Clean Architecture**:
-- `domain/` – Pure business entities (independent of frameworks and databases)
-- `usecase/` – All business logic and invariants
-- `repository/` – Data access layer with PostgreSQL (interface + implementation)
-- `transport/http/` – Thin delivery layer (only request/response handling)
-- `client/` (Order Service only) – Outbound HTTP client with 2-second timeout
-- `app/` – Composition Root with manual dependency injection
+- **Domain** — business entities
+- **Usecase** — business rules and orchestration
+- **Repository** — data access (PostgreSQL)
+- **Transport** — HTTP (Gin) + gRPC
+- **Client** — gRPC client for inter-service communication
 
-**Strict Microservices Rules Applied:**
-- Separate databases (`orderdb` and `paymentdb`)
-- No shared code or models between services
-- Synchronous REST communication only
+## Services
 
-## Bounded Contexts
+| Service         | Transport          | Port   | Database     |
+|-----------------|--------------------|--------|--------------|
+| Order Service   | REST + gRPC Stream | 8080 / 50052 | `orderdb`    |
+| Payment Service | gRPC               | 50051  | `paymentdb`  |
 
-- **Order Service** – Responsible for order lifecycle and state management
-- **Payment Service** – Responsible for payment processing and transaction limits
+## Technologies
+
+- Go 1.25
+- Gin (REST)
+- gRPC + Protocol Buffers
+- PostgreSQL
+- Clean Architecture
+- GitHub Actions (Contract-First code generation)
+
+## Project Structure
+
+AP2_Assignment1_Clean_Architecture_Microservices/
+├── order-service/
+│   ├── cmd/order-service/main.go
+│   ├── internal/
+│   │   ├── app/
+│   │   ├── client/
+│   │   ├── domain/
+│   │   ├── repository/
+│   │   ├── transport/http/
+│   │   ├── transport/grpc/
+│   │   └── usecase/
+│   └── proto/v1/                  ← local copy of generated proto
+├── payment-service/
+│   ├── cmd/payment-service/main.go
+│   └── ... (similar structure)
+├── AP2_Protos/                     ← source .proto (separate repo)
+└── AP2_Generated/                  ← generated code (separate repo)
+
 
 ## How to Run
 
-```powershell
-# Terminal 1 - Payment Service
-cd payment-service
-$env:DATABASE_URL = "postgres://postgres:12345@localhost:5432/paymentdb?sslmode=disable"
-$env:PORT = "8081"
-go run cmd/payment-service/main.go
+1. Start PostgreSQL and create two databases:
+    - `orderdb`
+    - `paymentdb`
 
-# Terminal 2 - Order Service
-cd order-service
-$env:DATABASE_URL = "postgres://postgres:12345@localhost:5432/orderdb?sslmode=disable"
-$env:PAYMENT_SERVICE_URL = "http://localhost:8081"
-$env:PORT = "8080"
-go run cmd/order-service/main.go
+2. Run migrations (files in `migrations/` folder).
 
-API Testing Examples (PowerShell)
-# 1. Create Order (with Idempotency)
-$body = @{customer_id="cust-001"; item_name="iPhone 16"; amount=15000} | ConvertTo-Json
-Invoke-WebRequest -Method POST -Uri "http://localhost:8080/orders" `
-    -Headers @{"Content-Type"="application/json"; "X-Idempotency-Key"="key-123"} -Body $body
+3. Start **Payment Service** first:
+   ```powershell
+   cd payment-service
+   go run cmd/payment-service/main.go
+4. Start **Order Service**
+   ```powershell
+    cd order-service
+    go run cmd/order-service/main.go
 
-# 2. Get Order
-Invoke-WebRequest -Uri "http://localhost:8080/orders/{order_id}"
+## Test Requests
+    ```powershell
+    $body = @{ customer_id = "cust-001"; item_name = "iPhone 16"; amount = 15000 } | ConvertTo-Json
 
-# 3. Cancel Order (only works for Pending status)
-Invoke-WebRequest -Method PATCH -Uri "http://localhost:8080/orders/{order_id}/cancel"
+    Invoke-WebRequest -Method POST `
+    -Uri "http://localhost:8080/orders" `
+    -Headers @{ "Content-Type" = "application/json" } `
+    -Body $body
 
-Bonus Feature Implemented
-Idempotency – using X-Idempotency-Key header to prevent duplicate orders/payments.
+## Contract-First gRPC
 
-Failure Scenario (Required by Assignment)
-When Payment Service is unavailable:
+.proto files are stored in separate repo AP2_Protos
 
-Order Service uses custom http.Client with 2-second timeout
-Returns 503 Service Unavailable
-Order is marked as "Failed"
-```
-## Architecture Diagram
-![img.png](img.png)
+Code is auto-generated via GitHub Actions into AP2_Generated
 
-## Key Design Decisions
-Full separation of concerns and dependency inversion
+Payment uses unary RPC
 
-Business rules are located only in the use case layer
-
-Domain models do not depend on HTTP, JSON, or database structures
-
-Each service owns its own data completely
+Order uses server-side streaming

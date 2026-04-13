@@ -2,20 +2,24 @@ package app
 
 import (
 	"database/sql"
-	"github.com/gin-gonic/gin"
-	_ "github.com/lib/pq"
+	"log"
+
 	"payment-service/internal/repository"
-	"payment-service/internal/transport/http"
+	grpcTransport "payment-service/internal/transport/grpc"
 	"payment-service/internal/usecase"
+
+	"google.golang.org/grpc"
+	pb "payment-service/proto/v1"
 )
 
-func NewApp(db *sql.DB) *gin.Engine {
+func NewGRPCServer(db *sql.DB) *grpc.Server {
 	repo := repository.NewPostgresPaymentRepository(db)
 	uc := usecase.NewPaymentUsecase(repo)
-	handler := http.NewHandler(uc)
 
-	r := gin.Default()
-	r.POST("/payments", handler.CreatePayment)
-	r.GET("/payments/:order_id", handler.GetPaymentByOrderID)
-	return r
+	s := grpc.NewServer()
+
+	pb.RegisterPaymentServiceServer(s, grpcTransport.NewPaymentServer(uc))
+
+	log.Println("gRPC Payment Server initialized successfully")
+	return s
 }
