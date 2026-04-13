@@ -1,6 +1,6 @@
 # AP2 Assignment 1 – Clean Architecture based Microservices (Order & Payment)
 
-**Student:** Makazhanov Danial
+**Student:** Makazhanov Danial        
 **Group:** SE-2419   
 **Date:** April 01, 2026
 
